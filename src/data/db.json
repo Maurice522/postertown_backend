@@ -1,0 +1,333 @@
+{
+  "products": [
+    {
+      "id": "poster-001",
+      "sku": "POSTER-001-PRT-01",
+      "slug": "poster-001",
+      "name": "Solo Leveling",
+      "subtitle": "Solo Leveling Premium Wall Art",
+      "brand": "Poster Town",
+      "vendor": "AnimePoster",
+      "category": {
+        "main": "Anime",
+        "subCategory": "Solo Leveling",
+        "collection": "Anime Metal Prints"
+      },
+      "description": {
+        "short": "Solo Leveling official poster featuring Sung Jin-Woo",
+        "full": "Solo Leveling official poster featuring Sung Jin-Woo printed on rust-resistant galvanized metal with vivid UV artwork and wall-ready finishing.",
+        "features": [
+          "Premium HD metal print",
+          "Fade resistant UV artwork",
+          "Scratch resistant coating",
+          "Waterproof & rust resistant",
+          "Easy wall mounting"
+        ]
+      },
+      "media": {
+        "featuredImage": "images/sololeveling.jpeg",
+        "thumbnail": "images/sololeveling.jpeg",
+        "gallery": [
+          "images/sololeveling.jpeg",
+          "images/sololeveling.jpeg",
+          "images/sololeveling.jpeg"
+        ],
+        "video": ""
+      },
+      "pricing": {
+        "price": 999,
+        "compareAtPrice": 1299,
+        "currency": "INR",
+        "discountPercent": 23,
+        "taxInclusive": true
+      },
+      "inventory": {
+        "stock": 50,
+        "trackInventory": true,
+        "lowStockThreshold": 5,
+        "allowBackorders": false,
+        "status": "in_stock"
+      },
+      "urgency": {
+        "lowStock": false,
+        "stockLeft": 50
+      },
+      "variants": [
+        {
+          "id": "poster-001-var-12x18",
+          "sku": "POSTER-001-1218",
+          "size": "12x9",
+          "sizeType": "Small",
+          "price": 999,
+          "stock": 25,
+          "pricing": {
+            "price": 999,
+            "compareAtPrice": 1299,
+            "currency": "INR",
+            "discountPercent": 23,
+            "taxInclusive": true
+          }
+        },
+        {
+          "id": "poster-001-var-18x24",
+          "sku": "POSTER-001-1824",
+          "size": "15.8x12",
+          "sizeType": "Medium",
+          "price": 1499,
+          "stock": 25,
+          "pricing": {
+            "price": 1499,
+            "compareAtPrice": 1949,
+            "currency": "INR",
+            "discountPercent": 23,
+            "taxInclusive": true
+          }
+        },
+        {
+          "id": "poster-001-var-2436",
+          "sku": "POSTER-001-PRT-01-LARGE",
+          "size": "24x18",
+          "sizeType": "Large",
+          "price": 1699,
+          "stock": 12,
+          "pricing": {
+            "price": 1699,
+            "compareAtPrice": 2209,
+            "currency": "INR",
+            "discountPercent": 23,
+            "taxInclusive": true
+          }
+        }
+      ],
+      "specifications": {
+        "material": "Galvanized Metal",
+        "finish": "Matte",
+        "orientation": "Portrait",
+        "shape": "Rectangle",
+        "thickness": "1.2mm",
+        "weight": "450g",
+        "mountType": "Magnetic"
+      },
+      "productAttributes": {
+        "waterproof": true,
+        "rustResistant": true,
+        "scratchResistant": true,
+        "fadeResistant": true
+      },
+      "filterableAttributes": {
+        "animeSeries": "Solo Leveling",
+        "character": "Solo Leveling",
+        "theme": "Anime",
+        "material": "Metal",
+        "orientation": "Portrait"
+      },
+      "filters": {
+        "theme": [
+          "Anime",
+          "Action"
+        ],
+        "character": [
+          "Solo Leveling"
+        ],
+        "colorPalette": [
+          "Black"
+        ],
+        "roomType": [
+          "Bedroom",
+          "Gaming Setup"
+        ],
+        "style": [
+          "Minimal",
+          "Anime"
+        ]
+      },
+      "badges": [
+        "Trending",
+        "Bestseller"
+      ],
+      "ratings": {
+        "average": 4.5,
+        "count": 12,
+        "breakdown": {
+          "1": 0,
+          "2": 0,
+          "3": 1,
+          "4": 2,
+          "5": 9
+        }
+      },
+      "reviews": [
+        {
+          "id": "poster-001-rev-1",
+          "user": "John Doe",
+          "title": "Great quality",
+          "comment": "Amazing quality!",
+          "rating": 5,
+          "verifiedPurchase": true,
+          "date": "2024-01-15"
+        }
+      ],
+      "metrics": {
+        "salesCount": 1000,
+        "wishlistCount": 80,
+        "viewCount": 5000,
+        "cartAdds": 120,
+        "conversionRate": 2.8
+      },
+      "socialProof": {
+        "currentlyViewing": 4,
+        "popularThisWeek": true,
+        "trendingScore": 70
+      },
+      "userState": {
+        "wishlisted": false,
+        "recentlyViewed": false,
+        "lastViewedAt": "2026-04-28T12:10:00Z"
+      },
+      "shipping": {
+        "freeShipping": true,
+        "estimatedDelivery": "3-7 days",
+        "dispatchTime": "24-48 hours",
+        "codAvailable": true
+      },
+      "careInstructions": [
+        "Wipe with dry cloth",
+        "Avoid direct moisture"
+      ],
+      "seo": {
+        "metaTitle": "Solo Leveling | Poster Town",
+        "metaDescription": "Solo Leveling official poster featuring Sung Jin-Woo",
+        "keywords": [
+          "solo leveling poster",
+          "anime metal poster",
+          "wall art"
+        ]
+      },
+      "crossSell": {
+        "relatedProducts": [
+          "poster-003",
+          "poster-004"
+        ],
+        "frequentlyBoughtTogether": []
+      },
+      "flags": {
+        "featured": true,
+        "newArrival": false,
+        "exclusive": true
+      },
+      "compliance": {
+        "hsnCode": "49119100",
+        "taxClass": "GST18"
+      },
+      "createdAt": "2024-01-01",
+      "updatedAt": "2026-04-28",
+      "sizes": [
+        {
+          "id": "poster-001-size-small",
+          "type": "Small",
+          "inches": "12 x 9",
+          "price": 999,
+          "stock": 25,
+          "sku": "POSTER-001-1218",
+          "variantId": "poster-001-var-12x18",
+          "pricing": {
+            "price": 999,
+            "compareAtPrice": 1299,
+            "currency": "INR",
+            "discountPercent": 23,
+            "taxInclusive": true
+          }
+        },
+        {
+          "id": "poster-001-size-medium",
+          "type": "Medium",
+          "inches": "15.8 x 12",
+          "price": 1499,
+          "stock": 25,
+          "sku": "POSTER-001-1824",
+          "variantId": "poster-001-var-18x24",
+          "pricing": {
+            "price": 1499,
+            "compareAtPrice": 1949,
+            "currency": "INR",
+            "discountPercent": 23,
+            "taxInclusive": true
+          }
+        },
+        {
+          "id": "poster-001-size-large",
+          "type": "Large",
+          "inches": "24 x 18",
+          "price": 1699,
+          "stock": 12,
+          "sku": "POSTER-001-PRT-01-LARGE",
+          "variantId": "poster-001-var-2436",
+          "pricing": {
+            "price": 1699,
+            "compareAtPrice": 2209,
+            "currency": "INR",
+            "discountPercent": 23,
+            "taxInclusive": true
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "user-001",
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "+91-9876543210",
+      "role": "customer",
+      "addresses": [
+        {
+          "id": "addr-001",
+          "line1": "123 Main Street",
+          "city": "Mumbai",
+          "state": "Maharashtra",
+          "postalCode": "400001",
+          "country": "India",
+          "isDefault": true
+        }
+      ],
+      "createdAt": "2026-05-02T00:00:00.000Z",
+      "updatedAt": "2026-05-02T00:00:00.000Z"
+    }
+  ],
+  "orders": [
+    {
+      "id": "order-001",
+      "userId": "user-001",
+      "status": "pending",
+      "items": [
+        {
+          "productId": "poster-001",
+          "variantId": "poster-001-var-12x18",
+          "quantity": 1,
+          "price": 999
+        }
+      ],
+      "payment": {
+        "method": "cod",
+        "status": "pending"
+      },
+      "shippingAddress": {
+        "line1": "123 Main Street",
+        "city": "Mumbai",
+        "state": "Maharashtra",
+        "postalCode": "400001",
+        "country": "India"
+      },
+      "totals": {
+        "subtotal": 999,
+        "shipping": 0,
+        "tax": 0,
+        "grandTotal": 999,
+        "currency": "INR"
+      },
+      "createdAt": "2026-05-02T00:00:00.000Z",
+      "updatedAt": "2026-05-02T00:00:00.000Z"
+    }
+  ]
+}
