@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createCrudController } from "../controllers/crudController.js";
+import { createOrder, updateOrder } from "../controllers/orderController.js";
 import { createProductDraft, uploadDraftImage } from "../controllers/productAiController.js";
 import { attachProductImages, uploadProductImages } from "../middleware/productImages.js";
 
@@ -14,9 +15,9 @@ export function createCrudRouter(collectionName) {
 
   router.get("/", controller.list);
   router.get("/:id", controller.getById);
-  router.post("/", ...productImageMiddleware, controller.create);
-  router.put("/:id", ...productImageMiddleware, controller.update);
-  router.patch("/:id", ...productImageMiddleware, controller.update);
+  router.post("/", ...(collectionName === "orders" ? [createOrder] : [...productImageMiddleware, controller.create]));
+  router.put("/:id", ...(collectionName === "orders" ? [updateOrder] : [...productImageMiddleware, controller.update]));
+  router.patch("/:id", ...(collectionName === "orders" ? [updateOrder] : [...productImageMiddleware, controller.update]));
   router.delete("/:id", controller.remove);
 
   return router;

@@ -18,7 +18,10 @@ export function createCrudController(collectionName) {
   return {
     async list(req, res, next) {
       try {
-        const items = await Model.find({}).sort({ createdAt: -1 }).lean({ virtuals: false });
+        const filter = Object.fromEntries(
+          Object.entries(req.query || {}).filter(([, value]) => value !== undefined && value !== "")
+        );
+        const items = await Model.find(filter).sort({ createdAt: -1 }).lean({ virtuals: false });
         res.json(items.map(({ _id, ...item }) => item));
       } catch (error) {
         next(error);
