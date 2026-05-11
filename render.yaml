@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: postertown-backend
+    runtime: node
+    plan: free
+    region: singapore
+    branch: master
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: GEMINI_API_VERSION
+        value: v1beta
+      - key: MAILJET_API_KEY
+        sync: false
+      - key: MAILJET_SECRET_KEY
+        sync: false
+      - key: MAILJET_FROM_EMAIL
+        sync: false
+      - key: MAILJET_FROM_NAME
+        value: Poster Town
