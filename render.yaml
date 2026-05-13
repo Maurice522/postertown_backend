@@ -25,7 +25,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-2.0-flash
+        value: gemini-2.5-flash
       - key: GEMINI_API_VERSION
         value: v1beta
       - key: MAILJET_API_KEY
