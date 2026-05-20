@@ -15,6 +15,12 @@ function extractJson(text) {
   return JSON.parse(candidate.slice(start, end + 1));
 }
 
+function normalizeOrientation(value = "") {
+  if (/landscape|horizontal/i.test(value)) return "Landscape";
+  if (/portrait|vertical/i.test(value)) return "Portrait";
+  return "";
+}
+
 export async function createProductDraftFromImage({ imageBuffer, mimeType, media }) {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is required to generate product drafts");
@@ -30,6 +36,7 @@ Rules:
 - Do not generate a product id.
 - Do not invent pricing, discount, size prices, inventory, ratings, reviews, metrics, or user state.
 - Keep arrays concise and useful for ecommerce filtering.
+- Use "Portrait" or "Landscape" for orientation.
 - Use this exact shape and fill only suitable content:
 {
   "sku": "",
@@ -46,7 +53,7 @@ Rules:
     "finish": "Matte",
     "orientation": "",
     "shape": "Rectangle",
-    "thickness": "1.2mm",
+    "thickness": "1 mm",
     "weight": "450g",
     "mountType": "Magnetic"
   },
@@ -127,9 +134,19 @@ Rules:
   }
 
   const draft = extractJson(text);
+  const orientation = normalizeOrientation(draft.specifications?.orientation || draft.filterableAttributes?.orientation);
 
   return {
     ...draft,
+    specifications: {
+      ...(draft.specifications || {}),
+      thickness: "1 mm",
+      orientation
+    },
+    filterableAttributes: {
+      ...(draft.filterableAttributes || {}),
+      orientation
+    },
     media: {
       ...(draft.media || {}),
       featuredImage: media.url,
