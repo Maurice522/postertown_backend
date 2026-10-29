@@ -1,6 +1,7 @@
 import multer from "multer";
 import { uploadImageBuffer } from "../config/cloudinary.js";
-import { createProductDraftFromImage } from "../utils/geminiProductDraft.js";
+import { Product } from "../models/Product.js";
+import { buildProductDraft, describePosterImage } from "../utils/geminiProductDraft.js";
 
 const storage = multer.memoryStorage();
 
@@ -20,25 +21,44 @@ export const uploadDraftImage = multer({
   }
 }).single("image");
 
+// Series and character names already in the catalog, so new drafts reuse the same
+// spelling and storefront filters stay grouped.
+async function catalogVocabulary() {
+  try {
+    const [series, characters] = await Promise.all([
+      Product.distinct("filterableAttributes.animeSeries"),
+      Product.distinct("filterableAttributes.character")
+    ]);
+    const tidy = (values) => values.filter((value) => typeof value === "string" && value.trim()).slice(0, 80);
+    return { series: tidy(series), characters: tidy(characters) };
+  } catch {
+    return {};
+  }
+}
+
 export async function createProductDraft(req, res, next) {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "Product image is required" });
     }
 
-    const upload = await uploadImageBuffer(req.file.buffer, "postertown/products");
-    const draft = await createProductDraftFromImage({
+    // Describe the image first so a Gemini failure doesn't leave an orphaned upload
+    // in Cloudinary.
+    const ai = await describePosterImage({
       imageBuffer: req.file.buffer,
       mimeType: req.file.mimetype,
-      media: {
+      vocabulary: await catalogVocabulary()
+    });
+
+    const upload = await uploadImageBuffer(req.file.buffer, "postertown/products");
+    const draft = buildProductDraft(ai, {
+      url: upload.secure_url,
+      cloudinary: {
         url: upload.secure_url,
-        cloudinary: {
-          url: upload.secure_url,
-          publicId: upload.public_id,
-          width: upload.width,
-          height: upload.height,
-          format: upload.format
-        }
+        publicId: upload.public_id,
+        width: upload.width,
+        height: upload.height,
+        format: upload.format
       }
     });
 
