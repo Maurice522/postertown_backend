@@ -2,7 +2,8 @@ import { COLLECTION_CATALOG, COLLECTION_SLUGS, assignCollections } from "./colle
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION || "v1beta";
-const GEMINI_TIMEOUT_MS = 60_000;
+// Newer models think before answering and can take well over a minute with an image.
+const GEMINI_TIMEOUT_MS = 150_000;
 
 // Values that describe Poster Town's physical product, not the artwork. They are set
 // here instead of being echoed back by the model so every draft gets the same values.
@@ -172,34 +173,95 @@ function extractJson(text) {
   return JSON.parse(candidate.slice(start, end + 1));
 }
 
-async function callGemini(body) {
-  const url = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${GEMINI_MODEL}:generateContent`;
+// GEMINI_API_KEY plus any spares in GEMINI_API_KEYS (comma-separated).
+function geminiKeys() {
+  const keys = [process.env.GEMINI_API_KEY, ...(process.env.GEMINI_API_KEYS || "").split(",")]
+    .map((key) => key?.trim())
+    .filter(Boolean);
+  return [...new Set(keys)];
+}
 
+// GEMINI_MODEL first, then GEMINI_FALLBACK_MODELS (comma-separated). Each key's free
+// quota is counted per model, and newer keys can't use older models at all.
+function geminiModels() {
+  const models = [GEMINI_MODEL, ...(process.env.GEMINI_FALLBACK_MODELS || "").split(",")]
+    .map((model) => model?.trim())
+    .filter(Boolean);
+  return [...new Set(models)];
+}
+
+// Key + model pairs that hit their quota or aren't available, and when to try them again.
+const cooldowns = new Map();
+const DEFAULT_COOLDOWN_MS = 30 * 60_000;
+const UNAVAILABLE_COOLDOWN_MS = 24 * 60 * 60_000;
+
+function retryDelayMs(data) {
+  const delay = data?.error?.details?.find((detail) => detail.retryDelay)?.retryDelay;
+  const seconds = Number.parseFloat(delay);
+  return Number.isFinite(seconds) ? seconds * 1000 : DEFAULT_COOLDOWN_MS;
+}
+
+// How long to rest a key + model pair after this failure, or 0 if the failure isn't
+// about the pair (a bad request would fail the same way everywhere).
+function cooldownFor(status, data) {
+  if (status === 429) return retryDelayMs(data);
+  if (status === 401 || status === 403) return DEFAULT_COOLDOWN_MS;
+  if (status === 404) return UNAVAILABLE_COOLDOWN_MS;
+  return 0;
+}
+
+async function requestGemini(model, key, body) {
+  const url = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${model}:generateContent`;
   for (let attempt = 1; ; attempt += 1) {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS)
     });
     const data = await response.json().catch(() => ({}));
 
-    if (response.ok) return data;
-
     // 500/503 are usually a temporarily overloaded model; one retry fixes most of them.
-    if (attempt < 2 && response.status >= 500) {
+    if (!response.ok && attempt < 2 && response.status >= 500) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       continue;
     }
 
-    const error = new Error(
-      response.status === 429
-        ? "Gemini quota or rate limit reached. Try again in a minute, or check the API plan."
-        : data?.error?.message || "Gemini request failed"
-    );
-    error.status = response.status;
-    throw error;
+    return { response, data };
   }
+}
+
+// Tries every key on the main model, then every key on each fallback model, skipping
+// pairs that are out of quota, so drafts keep working until everything is used up.
+async function callGemini(body) {
+  const keys = geminiKeys();
+  const models = geminiModels();
+  let lastFailure;
+
+  for (const model of models) {
+    for (const key of keys) {
+      const pair = `${model}|${key}`;
+      if ((cooldowns.get(pair) || 0) > Date.now()) continue;
+
+      const { response, data } = await requestGemini(model, key, body);
+      if (response.ok) return data;
+
+      lastFailure = { response, data };
+      const rest = cooldownFor(response.status, data);
+      if (!rest) break;
+      cooldowns.set(pair, Date.now() + rest);
+    }
+    if (lastFailure && !cooldownFor(lastFailure.response.status, lastFailure.data)) break;
+  }
+
+  const status = lastFailure && lastFailure.response.status !== 404 ? lastFailure.response.status : 429;
+  const error = new Error(
+    status === 429
+      ? `Gemini quota reached on all ${keys.length} API key${keys.length === 1 ? "" : "s"} (${models.join(", ")}). Try again later, or add another key.`
+      : lastFailure?.data?.error?.message || "Gemini request failed"
+  );
+  error.status = status;
+  throw error;
 }
 
 // Turns the model's flat answer into the product shape the admin client and
@@ -277,7 +339,7 @@ export function buildProductDraft(ai, media) {
 // Asks Gemini to describe the artwork. Returns the model's flat answer; combine it with
 // the uploaded image using buildProductDraft.
 export async function describePosterImage({ imageBuffer, mimeType, vocabulary }) {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!geminiKeys().length) {
     throw new Error("GEMINI_API_KEY is required to generate product drafts");
   }
 
