@@ -2,7 +2,9 @@ import Mailjet from "node-mailjet";
 
 export const orderStatusMessages = {
   payment_verification: "Payment verification started",
-  product_packing: "Your order is packed",
+  product_packing: "We received your payment and your order is being packed",
+  payment_not_verified:
+    "We could not find a matching payment for this order. Reply to this email with your UTR and payment screenshot and we will check again",
   in_transit: "Your order has been dispatched",
   completed: "Your order was delivered",
   cancelled: "Your order was cancelled",
@@ -196,10 +198,10 @@ function statusIndex(status, journey) {
 }
 
 function orderJourneyHtml(status) {
-  if (status === "cancelled") {
+  if (status === "cancelled" || status === "payment_not_verified") {
     return `
       <div style="background:#fff4f2;border:1px solid #ffd7d2;border-radius:14px;color:${brand.danger};font-size:14px;font-weight:800;margin:24px 0;padding:14px 16px;">
-        Order cancelled
+        ${status === "cancelled" ? "Order cancelled" : "Payment not verified"}
       </div>
     `;
   }
@@ -296,9 +298,11 @@ function customerInfoHtml(order = {}) {
 function orderStatusEmailHtml({ order, status, message, customerName }) {
   const orderId = order.id || "your order";
   const isReturn = status === "return_in_transit" || status === "refunded";
-  const title = status === "payment_verification"
-    ? "Thank you for your order"
-    : message;
+  const title = {
+    payment_verification: "Thank you for your order",
+    product_packing: "Payment received",
+    payment_not_verified: "We couldn't verify your payment"
+  }[status] || message;
 
   return emailLayout({
     title: `${brand.name} order ${orderId}`,

@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { OAuth2Client } from "google-auth-library";
 import { User } from "../models/User.js";
 import {
   sendPasswordResetEmail,
@@ -188,6 +189,114 @@ export async function login(req, res, next) {
     await user.save();
 
     res.json({ message: "Logged in", user: sanitizeUser(user) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+const googleClient = new OAuth2Client();
+
+// "Continue with Google": the browser sends the ID token Google issued; we check its
+// signature and audience, then sign in the account with that email (creating it, or
+// linking an existing email/password account, since Google has verified the address).
+export async function loginWithGoogle(req, res, next) {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return res.status(503).json({ message: "Google sign-in is not configured" });
+    }
+
+    const credential = String(req.body.credential || "");
+    if (!credential) {
+      return res.status(400).json({ message: "Missing Google credential" });
+    }
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: clientId });
+      payload = ticket.getPayload();
+    } catch {
+      return res.status(401).json({ message: "Google sign-in failed. Please try again" });
+    }
+
+    const email = normalizeEmail(payload?.email);
+    if (!email || !payload.email_verified) {
+      return res.status(401).json({ message: "Your Google account email is not verified" });
+    }
+
+    let user = await User.findOne({ email });
+    if (user && user.status !== "active") {
+      return res.status(403).json({ message: "This account is not active" });
+    }
+
+    if (!user) {
+      user = new User({
+        id: createUserId(email),
+        email,
+        name: payload.name || email.split("@")[0],
+        authProvider: "google",
+        role: "customer",
+        status: "active"
+      });
+    }
+
+    user.googleId = payload.sub;
+    if (payload.picture) user.avatarUrl = payload.picture;
+    if (!user.emailVerified) {
+      // A pending email signup is completed by proving the address through Google.
+      user.emailVerified = true;
+      user.emailVerifiedAt = new Date();
+      user.emailVerification = undefined;
+    }
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    res.json({ message: "Logged in", user: sanitizeUser(user) });
+  } catch (error) {
+    next(error);
+  }
+}
+
+const ADDRESS_FIELDS = ["fullName", "phone", "addressLine1", "addressLine2", "city", "state", "pincode"];
+
+// Saves the customer's delivery address as their default address. There are no
+// login sessions yet, so the request must name both the user's id and email.
+export async function saveDefaultAddress(req, res, next) {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const userId = String(req.body.userId || "");
+    const input = req.body.address || {};
+    const address = Object.fromEntries(
+      ADDRESS_FIELDS.map((field) => [field, String(input[field] ?? "").trim().slice(0, 160)])
+    );
+
+    if (!email || !userId) {
+      return res.status(400).json({ message: "Please log in again to save your address" });
+    }
+
+    if (!address.addressLine1 || !address.city || !address.state || !/^\d{6}$/.test(address.pincode)) {
+      return res.status(400).json({ message: "Address line 1, city, state and a 6-digit pincode are required" });
+    }
+
+    if (address.phone && !/^[6-9]\d{9}$/.test(address.phone.replace(/\D/g, "").slice(-10))) {
+      return res.status(400).json({ message: "Enter a valid 10-digit mobile number" });
+    }
+
+    const user = await User.findOne({ id: userId, email });
+    if (!user || user.status !== "active") {
+      return res.status(404).json({ message: "Account not found. Please log in again" });
+    }
+
+    const others = (user.addresses || [])
+      .filter((saved) => !saved.isDefault)
+      .map((saved) => (saved.toObject ? saved.toObject() : saved));
+    user.addresses = [{ ...address, label: "Home", country: "India", isDefault: true }, ...others];
+    if (address.phone && !user.phone) {
+      user.phone = address.phone;
+    }
+    await user.save();
+
+    res.json({ message: "Address saved", user: sanitizeUser(user) });
   } catch (error) {
     next(error);
   }

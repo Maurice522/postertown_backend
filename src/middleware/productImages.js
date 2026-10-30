@@ -1,5 +1,6 @@
 ﻿import multer from "multer";
 import { uploadImageBuffer } from "../config/cloudinary.js";
+import { assignCollections, sanitizeCollections } from "../utils/collections.js";
 
 const storage = multer.memoryStorage();
 
@@ -38,6 +39,9 @@ function parseJsonLike(value) {
 
 export async function attachProductImages(req, res, next) {
   try {
+    const imageLabels = parseJsonLike(req.body.imageLabels);
+    delete req.body.imageLabels;
+
     if (req.body.product || req.body.data) {
       const parsed = parseJsonLike(req.body.product ?? req.body.data);
       req.body = typeof parsed === "object" && parsed !== null ? { ...parsed } : req.body;
@@ -45,6 +49,14 @@ export async function attachProductImages(req, res, next) {
       req.body = Object.fromEntries(
         Object.entries(req.body).map(([key, value]) => [key, parseJsonLike(value)])
       );
+    }
+
+    // Every saved product gets its collections: the admin's choice when sent,
+    // otherwise the keyword/category rules (e.g. products added without Gemini).
+    if (req.body.name || req.body.category) {
+      req.body.collections = Array.isArray(req.body.collections)
+        ? sanitizeCollections(req.body.collections)
+        : assignCollections(req.body);
     }
 
     if (!req.files?.length) {
@@ -71,6 +83,18 @@ export async function attachProductImages(req, res, next) {
       gallery: [...(req.body.media?.gallery ?? []), ...imageUrls],
       cloudinary: [...(req.body.media?.cloudinary ?? []), ...cloudinaryImages]
     };
+
+    // Captions for generated mockups ("Room wall", "Held in hand", ...). Stored as
+    // { url, label } pairs because URLs can't be used as Mongo keys.
+    if (Array.isArray(imageLabels)) {
+      const added = imageUrls
+        .map((url, index) => ({ url, label: String(imageLabels[index] ?? "").trim().slice(0, 40) }))
+        .filter((entry) => entry.label);
+      if (added.length) {
+        const existing = Array.isArray(req.body.media.galleryLabels) ? req.body.media.galleryLabels : [];
+        req.body.media.galleryLabels = [...existing, ...added];
+      }
+    }
 
     next();
   } catch (error) {

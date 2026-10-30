@@ -36,3 +36,12 @@ services:
         sync: false
       - key: MAILJET_FROM_NAME
         value: Poster Town
+      - key: ADMIN_USERNAME
+        value: posteradmin
+      # Secret values: set them in the Render dashboard, never in this file.
+      - key: ADMIN_TOTP_SECRET
+        sync: false
+      - key: ADMIN_SESSION_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        value: 687716687153-f5bcpsfn3udcse8oi31uca9a0cmjat01.apps.googleusercontent.com

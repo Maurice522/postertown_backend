@@ -33,6 +33,8 @@ const userSchema = new mongoose.Schema(
       index: true
     },
     passwordHash: { type: String, select: false },
+    googleId: { type: String, index: true, sparse: true },
+    avatarUrl: String,
     phone: { type: String, trim: true },
     role: {
       type: String,
@@ -42,7 +44,7 @@ const userSchema = new mongoose.Schema(
     },
     authProvider: {
       type: String,
-      enum: ["email", "guest"],
+      enum: ["email", "google", "guest"],
       default: "email",
       index: true
     },

@@ -1,3 +1,5 @@
+import { COLLECTION_CATALOG, COLLECTION_SLUGS, assignCollections } from "./collections.js";
+
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION || "v1beta";
 const GEMINI_TIMEOUT_MS = 60_000;
@@ -75,6 +77,7 @@ const RESPONSE_SCHEMA = {
     colorPalette: stringArray({ enum: COLORS }),
     roomType: stringArray({ enum: ROOM_TYPES }),
     style: stringArray({ enum: STYLES }),
+    collections: stringArray({ enum: COLLECTION_SLUGS }),
     metaTitle: { type: "STRING" },
     metaDescription: { type: "STRING" },
     keywords: stringArray()
@@ -82,10 +85,10 @@ const RESPONSE_SCHEMA = {
   required: [
     "name", "subtitle", "category", "series", "character", "orientation", "shortDescription",
     "fullDescription", "features", "themes", "characters", "colorPalette", "roomType", "style",
-    "metaTitle", "metaDescription", "keywords"
+    "collections", "metaTitle", "metaDescription", "keywords"
   ],
   propertyOrdering: [
-    "category", "series", "character", "orientation", "name", "subtitle", "shortDescription",
+    "category", "series", "character", "orientation", "collections", "name", "subtitle", "shortDescription",
     "fullDescription", "features", "themes", "characters", "colorPalette", "roomType", "style",
     "metaTitle", "metaDescription", "keywords"
   ]
@@ -110,6 +113,8 @@ Rules:
 - features: exactly 5 bullet points; first two about the artwork, last three about the metal print.
 - themes: 2-4 single-word or two-word themes about mood or subject; do not repeat the series or character name. characters: every recognisable character, best-known names.
 - colorPalette: 3-5 dominant colours. roomType: 1-3 entries. style: 1-3 entries.
+- collections: every store collection this poster clearly belongs to, as slugs. Usually 1-3. Options:
+${COLLECTION_CATALOG.map((collection) => `  - ${collection.slug}: ${collection.hint || collection.title}`).join("\n")}
 - metaTitle at most 60 characters. metaDescription 120-155 characters. keywords: 8-10 search phrases.
 - Never call the poster "official", "licensed" or "authentic", and never claim endorsement by any studio or brand.
 - Do not mention prices, discounts, sizes, stock, ratings or reviews.
@@ -208,6 +213,7 @@ export function buildProductDraft(ai, media) {
   // Series and character have their own filters, so keep them out of themes.
   const nameKeys = [series, character].map((value) => value.toLowerCase());
   const themes = cleanList(ai.themes).filter((theme) => !nameKeys.includes(theme.toLowerCase())).slice(0, 4);
+  const characters = cleanList(ai.characters?.length ? ai.characters : [character], { max: 6 });
 
   return {
     sku: "",
@@ -244,11 +250,16 @@ export function buildProductDraft(ai, media) {
     },
     filters: {
       theme: themes,
-      character: cleanList(ai.characters?.length ? ai.characters : [character], { max: 6 }),
+      character: characters,
       colorPalette: cleanList(ai.colorPalette, { max: 5, allowed: COLORS }),
       roomType: cleanList(ai.roomType, { max: 3, allowed: ROOM_TYPES }),
       style: cleanList(ai.style, { max: 3, allowed: STYLES })
     },
+    // Keyword/category rules plus Gemini's picks (it judges things like "villains").
+    collections: assignCollections(
+      { name, category: { main: category, subCategory: series }, filterableAttributes: { animeSeries: series, character }, filters: { character: characters } },
+      ai.collections
+    ),
     badges: [...PRODUCT_DEFAULTS.badges],
     shipping: { ...PRODUCT_DEFAULTS.shipping },
     careInstructions: [...PRODUCT_DEFAULTS.careInstructions],

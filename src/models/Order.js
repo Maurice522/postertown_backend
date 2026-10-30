@@ -47,6 +47,9 @@ const orderSchema = new mongoose.Schema(
       method: { type: String, default: "UPI" },
       receiverUpiId: String,
       transactionId: { type: String, default: "", index: true },
+      // Normalised 12-digit UTR. Unique across all orders (see index below), so one
+      // UPI payment can never be claimed by two orders.
+      utr: String,
       screenshotName: String,
       screenshotDataUrl: String,
       note: String,
@@ -85,6 +88,13 @@ const orderSchema = new mongoose.Schema(
       },
     },
   }
+);
+
+// Older orders were saved before UTRs were checked and have no payment.utr, so the
+// partial filter leaves them out of the uniqueness rule.
+orderSchema.index(
+  { "payment.utr": 1 },
+  { unique: true, partialFilterExpression: { "payment.utr": { $type: "string" } } }
 );
 
 export const Order = mongoose.model("Order", orderSchema);
