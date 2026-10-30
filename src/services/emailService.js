@@ -17,6 +17,7 @@ const brand = {
   name: "Poster Town",
   logoUrl: "https://res.cloudinary.com/infieq/image/upload/v1779269763/postertown/brand/poster-town-logo.png",
   siteUrl: "https://metalpostertown.in/",
+  adminUrl: "https://postertown-adminclient.onrender.com/",
   accent: "#168f85",
   accentDark: "#0f6862",
   ink: "#17202b",
@@ -381,6 +382,64 @@ export async function sendOrderStatusEmail(order, status = order?.status) {
     text,
     html: orderStatusEmailHtml({ order, status, message, customerName })
   });
+}
+
+function newOrderAlertHtml(order) {
+  const orderId = order.id || "New order";
+  const customer = order.customer || {};
+  const utr = order.payment?.utr || order.payment?.transactionId || "-";
+  const contact = [customer.name, customer.email, customer.phone].filter(Boolean).map(escapeHtml).join("<br />");
+
+  return emailLayout({
+    title: `New order ${orderId}`,
+    preheader: `${getCustomerName(order)} placed an order for ${currency(order.totals?.total)}`,
+    eyebrow: "New order",
+    children: `
+      <h1 style="font-size:24px;line-height:1.2;margin:0 0 10px;">New order ${escapeHtml(orderId)}</h1>
+      <p style="color:${brand.muted};font-size:15px;line-height:1.6;margin:0 0 16px;">A customer placed an order. Check the payment in your UPI app, then mark it in the admin.</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;">
+        <tr>
+          <td style="background:${brand.panel};border:1px solid ${brand.border};border-radius:12px;padding:14px;vertical-align:top;width:50%;">
+            <div style="font-size:13px;font-weight:800;margin-bottom:8px;">Customer</div>
+            <div style="color:${brand.muted};font-size:13px;line-height:1.55;">${contact || "-"}</div>
+          </td>
+          <td style="width:12px;"></td>
+          <td style="background:${brand.panel};border:1px solid ${brand.border};border-radius:12px;padding:14px;vertical-align:top;width:50%;">
+            <div style="font-size:13px;font-weight:800;margin-bottom:8px;">UPI payment</div>
+            <div style="color:${brand.muted};font-size:13px;line-height:1.55;">UTR ${escapeHtml(utr)}<br />${currency(order.totals?.total)}</div>
+          </td>
+        </tr>
+      </table>
+      ${button("Open orders in the admin", brand.adminUrl)}
+      ${orderItemsHtml(order.items)}
+      ${totalsHtml(order.totals)}
+      ${customerInfoHtml(order)}
+    `
+  });
+}
+
+// Tells the shop owner about a new order. ORDER_ALERT_EMAIL holds one or more
+// addresses, comma-separated; without it no alert is sent.
+export async function sendNewOrderAlert(order) {
+  const recipients = (process.env.ORDER_ALERT_EMAIL || "")
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+
+  if (!recipients.length) {
+    console.warn("[email] skipped new order alert: ORDER_ALERT_EMAIL is not set");
+    return { skipped: true, reason: "missing_recipient" };
+  }
+
+  const orderId = order.id || "new order";
+  const subject = `New order ${orderId}: ${getCustomerName(order)}, ${currency(order.totals?.total)}`;
+  const items = (order.items || [])
+    .map((item) => `- ${item.name || item.id} ${item.size ? `(${item.size}) ` : ""}x ${Number(item.amount || item.quantity || 1)}`)
+    .join("\n");
+  const text = `New order ${orderId}\n\nCustomer: ${getCustomerName(order)} ${getCustomerEmail(order)} ${order.customer?.phone || ""}\nUTR: ${order.payment?.utr || order.payment?.transactionId || "-"}\nTotal: ${currency(order.totals?.total)}\n\n${items}\n\n${brand.adminUrl}`;
+  const html = newOrderAlertHtml(order);
+
+  return Promise.all(recipients.map((to) => sendEmail({ to, name: brand.name, subject, text, html })));
 }
 
 export async function sendSignupVerificationEmail({ email, name, code }) {

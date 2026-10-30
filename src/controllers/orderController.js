@@ -1,6 +1,6 @@
 import { Order } from "../models/Order.js";
 import { User } from "../models/User.js";
-import { sendOrderStatusEmail } from "../services/emailService.js";
+import { sendNewOrderAlert, sendOrderStatusEmail } from "../services/emailService.js";
 
 function normalizePhone(value = "") {
   return String(value).replace(/\D+/g, "");
@@ -99,6 +99,11 @@ export async function createOrder(req, res, next) {
 
     const order = await Order.create(orderPayload);
     await notifyOrderStatus(order.toJSON(), order.status);
+    try {
+      await sendNewOrderAlert(order.toJSON());
+    } catch (error) {
+      console.error("[email] failed to send the new order alert", error);
+    }
 
     res.status(201).json(order.toJSON());
   } catch (error) {
