@@ -2,8 +2,8 @@ import { COLLECTION_CATALOG, COLLECTION_SLUGS, assignCollections } from "./colle
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_API_VERSION = process.env.GEMINI_API_VERSION || "v1beta";
-// Newer models think before answering and can take well over a minute with an image.
-const GEMINI_TIMEOUT_MS = 150_000;
+// Long enough for a slow answer with an image; past this, the next model is tried.
+const GEMINI_TIMEOUT_MS = 90_000;
 
 // Values that describe Poster Town's physical product, not the artwork. They are set
 // here instead of being echoed back by the model so every draft gets the same values.
@@ -213,12 +213,19 @@ function cooldownFor(status, data) {
 async function requestGemini(model, key, body) {
   const url = `https://generativelanguage.googleapis.com/${GEMINI_API_VERSION}/models/${model}:generateContent`;
   for (let attempt = 1; ; attempt += 1) {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS)
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS)
+      });
+    } catch (err) {
+      // A timeout or dropped connection: report it like an overloaded model.
+      const message = err.name === "TimeoutError" ? `${model} took too long to answer` : err.message;
+      return { status: 504, data: { error: { message } } };
+    }
     const data = await response.json().catch(() => ({}));
 
     // 500/503 are usually a temporarily overloaded model; one retry fixes most of them.
@@ -227,41 +234,49 @@ async function requestGemini(model, key, body) {
       continue;
     }
 
-    return { response, data };
+    return { ok: response.ok, status: response.status, data };
   }
 }
 
-// Tries every key on the main model, then every key on each fallback model, skipping
-// pairs that are out of quota, so drafts keep working until everything is used up.
+// Tries every key on the main model, then every key on each fallback model. Pairs that
+// are out of quota are rested; an overloaded or slow model is skipped for this draft.
 async function callGemini(body) {
   const keys = geminiKeys();
   const models = geminiModels();
   let lastFailure;
+  let onlyQuotaFailures = true;
 
   for (const model of models) {
     for (const key of keys) {
       const pair = `${model}|${key}`;
       if ((cooldowns.get(pair) || 0) > Date.now()) continue;
 
-      const { response, data } = await requestGemini(model, key, body);
-      if (response.ok) return data;
+      const result = await requestGemini(model, key, body);
+      if (result.ok) return result.data;
 
-      lastFailure = { response, data };
-      const rest = cooldownFor(response.status, data);
-      if (!rest) break;
-      cooldowns.set(pair, Date.now() + rest);
+      lastFailure = result;
+      const rest = cooldownFor(result.status, result.data);
+      if (rest) {
+        cooldowns.set(pair, Date.now() + rest);
+        continue;
+      }
+      onlyQuotaFailures = false;
+      if (result.status >= 500) break; // the whole model is struggling: try the next one
+      // Anything else (a bad request) would fail the same way on every key and model.
+      throw geminiError(result.status, result.data?.error?.message || "Gemini request failed");
     }
-    if (lastFailure && !cooldownFor(lastFailure.response.status, lastFailure.data)) break;
   }
 
-  const status = lastFailure && lastFailure.response.status !== 404 ? lastFailure.response.status : 429;
-  const error = new Error(
-    status === 429
-      ? `Gemini quota reached on all ${keys.length} API key${keys.length === 1 ? "" : "s"} (${models.join(", ")}). Try again later, or add another key.`
-      : lastFailure?.data?.error?.message || "Gemini request failed"
-  );
+  if (!lastFailure || onlyQuotaFailures) {
+    throw geminiError(429, `Gemini quota reached on all ${keys.length} API key${keys.length === 1 ? "" : "s"} (${models.join(", ")}). Try again later, or add another key.`);
+  }
+  throw geminiError(lastFailure.status, `Gemini is busy on every model right now (${lastFailure.data?.error?.message || "request failed"}). Try again in a few minutes.`);
+}
+
+function geminiError(status, message) {
+  const error = new Error(message);
   error.status = status;
-  throw error;
+  return error;
 }
 
 // Turns the model's flat answer into the product shape the admin client and
