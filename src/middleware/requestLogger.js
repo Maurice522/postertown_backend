@@ -92,7 +92,11 @@ export function requestLogger(req, res, next) {
     console.log(
       `[route:finish] ${req.method} ${reachedRoute} -> ${res.statusCode} (${durationMs}ms)`
     );
-    console.log("[response:data]", trimForLog(maskSensitiveData(responseBody)));
+    // Successful bodies (like the whole catalog) are skipped: copying and printing
+    // them costs CPU on every request and they rarely help debugging.
+    if (res.statusCode >= 400) {
+      console.log("[response:data]", trimForLog(maskSensitiveData(responseBody)));
+    }
   });
 
   next();

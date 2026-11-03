@@ -29,6 +29,13 @@ function adminOrCustomerOrderRequest(req, res, next) {
   return res.status(401).json({ message: "Admin login required" });
 }
 
+// The storefront's catalog requests may be reused by the browser for a minute (and
+// served stale while it refreshes). The admin sends a token and always gets fresh data.
+function publicCatalogCache(req, res, next) {
+  res.set("Cache-Control", req.headers.authorization ? "no-store" : "public, max-age=60, stale-while-revalidate=300");
+  next();
+}
+
 export function createCrudRouter(collectionName) {
   const router = Router();
   const controller = createCrudController(collectionName);
@@ -36,8 +43,8 @@ export function createCrudRouter(collectionName) {
   if (collectionName === "products") {
     const images = [uploadProductImages, attachProductImages];
     router.post("/draft-from-image", requireAdmin, uploadDraftImage, createProductDraft);
-    router.get("/", controller.list);
-    router.get("/:id", controller.getById);
+    router.get("/", publicCatalogCache, controller.list);
+    router.get("/:id", publicCatalogCache, controller.getById);
     router.post("/", requireAdmin, ...images, controller.create);
     router.put("/:id", requireAdmin, ...images, controller.update);
     router.patch("/:id", requireAdmin, ...images, controller.update);
