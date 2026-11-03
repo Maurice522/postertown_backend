@@ -1,6 +1,6 @@
-# Render's free plan puts the API to sleep after 15 minutes without requests, and the
-# next visitor waits ~25 seconds for it to wake up. Pinging it every 10 minutes keeps
-# it awake (one always-on service fits in Render's 750 free hours a month).
+# Backup for keep-warm/ (the Cloudflare cron worker, which pings every 5 minutes on time).
+# Render's free plan puts the API to sleep after 15 minutes without requests; GitHub's
+# schedule often runs late, so this alone isn't enough to keep it awake.
 name: Keep API awake
 
 on:
