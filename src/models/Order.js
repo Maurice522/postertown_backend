@@ -56,7 +56,14 @@ const orderSchema = new mongoose.Schema(
       payerName: String,
     },
     items: { type: [orderItemSchema], default: [] },
+    // Set by the server from catalog prices (see priceOrder in orderController).
     totals: {
+      productsTotal: Number,
+      bundleDiscount: { type: Number, default: 0 },
+      couponCode: String,
+      couponDiscount: { type: Number, default: 0 },
+      // Only when the customer was shown a different total than the server's.
+      customerSawTotal: Number,
       subtotalExGst: { type: Number, default: 0 },
       gst: { type: Number, default: 0 },
       subtotal: { type: Number, default: 0 },

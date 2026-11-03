@@ -6,6 +6,7 @@ import { configureCloudinary } from "./config/cloudinary.js";
 import { createCrudRouter } from "./routes/crudRouter.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
 import { COLLECTION_CATALOG } from "./utils/collections.js";
 import { errorHandler, notFound } from "./middleware/errorHandlers.js";
 import { requestLogger } from "./middleware/requestLogger.js";
@@ -32,6 +33,7 @@ app.get("/", (req, res) => {
       products: "/api/products",
       users: "/api/users",
       orders: "/api/orders",
+      reviews: "/api/reviews",
       auth: {
         login: "/api/auth/login",
         signupStart: "/api/auth/signup/start",
@@ -51,6 +53,7 @@ app.use("/api/users", createCrudRouter("users"));
 app.use("/api/orders", createCrudRouter("orders"));
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/reviews", reviewRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

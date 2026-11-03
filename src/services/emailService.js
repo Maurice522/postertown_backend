@@ -259,6 +259,9 @@ function totalsHtml(totals = {}) {
   return `
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;border-collapse:collapse;">
       ${[
+        ["Posters", totals.productsTotal],
+        ["A4 bundle (3 for ₹1599)", totals.bundleDiscount ? -totals.bundleDiscount : null],
+        [`Coupon ${totals.couponCode || ""}`.trim(), totals.couponDiscount ? -totals.couponDiscount : null],
         ["Subtotal", totals.subtotal],
         ["GST", totals.gst],
         ["Shipping", totals.shipping],

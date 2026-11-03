@@ -1,6 +1,79 @@
 import { Order } from "../models/Order.js";
+import { Product } from "../models/Product.js";
 import { User } from "../models/User.js";
 import { sendNewOrderAlert, sendOrderStatusEmail } from "../services/emailService.js";
+import { isDemonSlayer, priceCart } from "../utils/pricing.js";
+
+const GST_RATE = 18;
+
+// Nearest A-series paper size for a "W x H" inches string, by its long side (same
+// rule as the storefront's paperSizeFor).
+function paperSizeFor(size = {}) {
+  if (size.paper) return size.paper;
+  const sides = String(size.inches || size.size || "")
+    .split(/x/i)
+    .map((value) => parseFloat(value))
+    .filter((value) => value > 0);
+  if (!sides.length) return "";
+  const longSide = Math.max(...sides);
+  if (longSide <= 9.5) return "A5";
+  if (longSide <= 13) return "A4";
+  if (longSide <= 18) return "A3";
+  if (longSide <= 26) return "A2";
+  return "";
+}
+
+// Recalculates the order from the catalog's own prices, so the totals can't be set by
+// the browser (bundle, coupon and shipping included). Returns the items with their
+// real unit prices and the totals to store.
+export async function priceOrder(items = [], couponCode = "") {
+  const productIds = [...new Set(items.map((item) => item.productId).filter(Boolean))];
+  const products = await Product.find({ id: { $in: productIds } }).lean();
+  const byId = new Map(products.map((product) => [product.id, product]));
+
+  const pricedItems = items.map((item) => {
+    const product = byId.get(item.productId);
+    if (!product) return { item, line: null };
+    const size =
+      (product.sizes || []).find((entry) => entry.type === item.size) ||
+      (product.variants || []).find((entry) => entry.sizeType === item.size) ||
+      null;
+    const unitPrice = Number(size?.price ?? product.pricing?.price ?? item.price) || 0;
+    return {
+      item: { ...item, price: unitPrice },
+      line: {
+        unitPrice,
+        quantity: item.amount,
+        paper: paperSizeFor(size || {}),
+        demonSlayer: isDemonSlayer(product.category?.subCategory, product.name),
+      },
+    };
+  });
+
+  const missing = pricedItems.find((entry) => !entry.line);
+  if (missing) {
+    const error = new Error(`"${missing.item.name || "A poster"}" is no longer available. Remove it from your cart and try again.`);
+    error.status = 400;
+    throw error;
+  }
+
+  const priced = priceCart(pricedItems.map((entry) => entry.line), couponCode);
+  const subtotalExGst = Math.round((priced.subtotal / (100 + GST_RATE)) * 100);
+  return {
+    items: pricedItems.map((entry) => entry.item),
+    totals: {
+      productsTotal: priced.productsTotal,
+      bundleDiscount: priced.bundleDiscount,
+      couponCode: priced.couponCode,
+      couponDiscount: priced.couponDiscount,
+      subtotalExGst,
+      gst: Math.max(priced.subtotal - subtotalExGst, 0),
+      subtotal: priced.subtotal,
+      shipping: priced.shipping,
+      total: priced.total,
+    },
+  };
+}
 
 function normalizePhone(value = "") {
   return String(value).replace(/\D+/g, "");
@@ -52,6 +125,21 @@ export async function createOrder(req, res, next) {
       return res.status(409).json({ message: UTR_IN_USE_MESSAGE });
     }
 
+    if (!Array.isArray(req.body.items) || !req.body.items.length) {
+      return res.status(400).json({ message: "Your cart is empty" });
+    }
+    let pricing;
+    try {
+      pricing = await priceOrder(req.body.items, req.body.couponCode);
+    } catch (error) {
+      if (error.status === 400) return res.status(400).json({ message: error.message });
+      throw error;
+    }
+    // The customer has already paid by now, so a different total (a price changed
+    // after they added the poster) is flagged for the admin rather than refused.
+    const clientTotal = Number(req.body.totals?.total);
+    const totalsMismatch = clientTotal !== pricing.totals.total;
+
     const orderId = req.body.id || createOrderId();
     const customer = req.body.customer || {};
     const shipping = req.body.shipping || {};
@@ -79,6 +167,12 @@ export async function createOrder(req, res, next) {
       ...req.body,
       id: orderId,
       userId,
+      items: pricing.items,
+      totals: {
+        ...pricing.totals,
+        ...(totalsMismatch ? { customerSawTotal: Number.isFinite(clientTotal) ? clientTotal : null } : {})
+      },
+      totalsMismatch,
       customer: {
         ...customer,
         name: customer.name || userPayload.name,
