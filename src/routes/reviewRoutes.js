@@ -2,14 +2,45 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { uploadImageBuffer } from "../config/cloudinary.js";
 import { isAdminRequest, requireAdmin } from "../middleware/adminAuth.js";
+import { Order } from "../models/Order.js";
 import { Product } from "../models/Product.js";
 import { Review } from "../models/Review.js";
+import { REVIEWABLE_ORDER_STATUS, refreshProductRating } from "../utils/reviews.js";
 
 // - GET    /api/reviews?productId=...   approved reviews (admin: all, optional ?status=)
-// - POST   /api/reviews                 a customer submits a review (starts pending)
+// - GET    /api/reviews/eligibility?productId=...&userIds=a,b
+//                                       the customer's delivered order of this poster
+//                                       that hasn't been reviewed yet, if any
+// - POST   /api/reviews                 a buyer submits a review (starts pending)
 // - PATCH  /api/reviews/:id             admin approves / rejects
 // - DELETE /api/reviews/:id             admin deletes
+//
+// Customers are identified by their order user id, the same key the storefront
+// already uses to list their orders. The admin approval is the backstop.
 const router = Router();
+
+// A delivered (and not returned) order from this customer containing the poster,
+// that has no review for it yet.
+async function reviewableOrder(productId, userIds, orderId) {
+  const filter = { userId: { $in: userIds }, status: REVIEWABLE_ORDER_STATUS, "items.productId": productId };
+  if (orderId) filter.id = orderId;
+  const orders = await Order.find(filter, "id userId").sort({ createdAt: -1 }).lean();
+  if (!orders.length) return { order: null, alreadyReviewed: false };
+  const reviewed = new Set(
+    (await Review.find({ productId, orderId: { $in: orders.map((order) => order.id) } }, "orderId").lean()).map(
+      (review) => review.orderId
+    )
+  );
+  const order = orders.find((entry) => !reviewed.has(entry.id)) || null;
+  return { order, alreadyReviewed: !order };
+}
+
+const userIdList = (value) =>
+  String(value || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .slice(0, 10);
 
 const PUBLIC_FIELDS = "id productId name rating comment photoUrl createdAt";
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
@@ -25,17 +56,18 @@ function tooManySubmissions(ip) {
   return false;
 }
 
-// The product's rating is the average of its approved reviews.
-async function refreshProductRating(productId) {
-  const [summary] = await Review.aggregate([
-    { $match: { productId, status: "approved" } },
-    { $group: { _id: null, average: { $avg: "$rating" }, count: { $sum: 1 } } },
-  ]);
-  const ratings = summary
-    ? { average: Math.round(summary.average * 10) / 10, count: summary.count }
-    : { average: 0, count: 0 };
-  await Product.updateOne({ id: productId }, { $set: { ratings } });
-}
+router.get("/eligibility", async (req, res, next) => {
+  try {
+    const productId = String(req.query.productId || "");
+    const userIds = userIdList(req.query.userIds);
+    res.set("Cache-Control", "no-store");
+    if (!productId || !userIds.length) return res.json({ eligible: false, alreadyReviewed: false });
+    const { order, alreadyReviewed } = await reviewableOrder(productId, userIds);
+    res.json(order ? { eligible: true, orderId: order.id, userId: order.userId } : { eligible: false, alreadyReviewed });
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.get("/", async (req, res, next) => {
   try {
@@ -80,6 +112,15 @@ router.post("/", async (req, res, next) => {
       if (!isImage) return res.status(400).json({ message: "The photo must be a JPG, PNG or WebP image" });
       if (bytes > MAX_PHOTO_BYTES) return res.status(400).json({ message: "The photo is too large (max 4 MB)" });
     }
+    const orderId = String(req.body?.orderId || "");
+    const userId = String(req.body?.userId || "");
+    const { order, alreadyReviewed } = orderId && userId
+      ? await reviewableOrder(product.id, [userId], orderId)
+      : { order: null, alreadyReviewed: false };
+    if (alreadyReviewed) return res.status(409).json({ message: "You've already reviewed this poster for that order." });
+    if (!order) {
+      return res.status(403).json({ message: "Only customers who've received this poster can review it." });
+    }
     if (tooManySubmissions(req.ip)) {
       return res.status(429).json({ message: "Too many reviews from this device. Please try again later." });
     }
@@ -88,6 +129,8 @@ router.post("/", async (req, res, next) => {
       id: `rev-${crypto.randomUUID()}`,
       productId: product.id,
       productName: product.name,
+      orderId: order.id,
+      userId: order.userId,
       name: String(name).trim().slice(0, 60),
       email: String(email || "").trim().slice(0, 120) || undefined,
       rating,
@@ -96,6 +139,8 @@ router.post("/", async (req, res, next) => {
     });
     res.status(201).json({ message: "Thanks! Your review will appear once we've checked it." });
   } catch (error) {
+    // Two submissions for the same order at once: the unique index stops the second.
+    if (error.code === 11000) return res.status(409).json({ message: "You've already reviewed this poster for that order." });
     next(error);
   }
 });

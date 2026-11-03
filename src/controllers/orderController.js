@@ -3,6 +3,7 @@ import { Product } from "../models/Product.js";
 import { User } from "../models/User.js";
 import { sendNewOrderAlert, sendOrderStatusEmail } from "../services/emailService.js";
 import { isDemonSlayer, priceCart } from "../utils/pricing.js";
+import { RETURNED_ORDER_STATUSES, hideReviewsForOrder } from "../utils/reviews.js";
 
 const GST_RATE = 18;
 
@@ -240,6 +241,14 @@ export async function updateOrder(req, res, next) {
 
     if (updates.status && updates.status !== previousStatus) {
       await notifyOrderStatus(orderJson, updates.status);
+      // A returned or cancelled order can't vouch for a review any more.
+      if (RETURNED_ORDER_STATUSES.includes(updates.status)) {
+        try {
+          await hideReviewsForOrder(orderJson.id);
+        } catch (error) {
+          console.error(`[reviews] failed to hide reviews for order ${orderJson.id}`, error);
+        }
+      }
     }
 
     res.json(orderJson);

@@ -7,6 +7,11 @@ const reviewSchema = new mongoose.Schema(
     id: { type: String, required: true, unique: true, index: true },
     productId: { type: String, required: true, index: true },
     productName: String,
+    // The delivered order this review comes from: only buyers can review.
+    orderId: { type: String, required: true, index: true },
+    userId: String,
+    // "order_returned" when it was hidden because the order was returned.
+    hiddenReason: String,
     name: { type: String, required: true, trim: true, maxlength: 60 },
     // Private: lets the admin contact the reviewer. Never sent to the storefront.
     email: { type: String, trim: true, lowercase: true, maxlength: 120 },
@@ -30,5 +35,8 @@ const reviewSchema = new mongoose.Schema(
     },
   }
 );
+
+// One review per poster per order.
+reviewSchema.index({ orderId: 1, productId: 1 }, { unique: true });
 
 export const Review = mongoose.models.Review || mongoose.model("Review", reviewSchema);
