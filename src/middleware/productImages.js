@@ -76,11 +76,15 @@ export async function attachProductImages(req, res, next) {
       format: upload.format
     }));
 
+    const featuredImage = req.body.media?.featuredImage ?? imageUrls[0];
+    const gallery = [...(req.body.media?.gallery ?? []), ...imageUrls];
     req.body.media = {
       ...(req.body.media ?? {}),
-      featuredImage: req.body.media?.featuredImage ?? imageUrls[0],
+      featuredImage,
       thumbnail: req.body.media?.thumbnail ?? imageUrls[0],
-      gallery: [...(req.body.media?.gallery ?? []), ...imageUrls],
+      // The main image always leads the gallery, even when it was just uploaded
+      // to replace an old one.
+      gallery: [featuredImage, ...gallery.filter((url) => url !== featuredImage)],
       cloudinary: [...(req.body.media?.cloudinary ?? []), ...cloudinaryImages]
     };
 
