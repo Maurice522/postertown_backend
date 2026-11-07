@@ -4,6 +4,11 @@ import { User } from "../models/User.js";
 import { sendNewOrderAlert, sendOrderStatusEmail } from "../services/emailService.js";
 import { isDemonSlayer, priceCart } from "../utils/pricing.js";
 import { RETURNED_ORDER_STATUSES, hideReviewsForOrder } from "../utils/reviews.js";
+import { sendGaRefund } from "../services/analytics.js";
+
+// GA4 counts a purchase as soon as the order is placed, so these reverse it (failed
+// UPI check, cancellation, refund).
+const GA_REVERSE_STATUSES = ["refunded", "cancelled", "payment_not_verified"];
 
 const GST_RATE = 18;
 
@@ -241,6 +246,9 @@ export async function updateOrder(req, res, next) {
 
     if (updates.status && updates.status !== previousStatus) {
       await notifyOrderStatus(orderJson, updates.status);
+      if (GA_REVERSE_STATUSES.includes(updates.status) && !GA_REVERSE_STATUSES.includes(previousStatus)) {
+        sendGaRefund(orderJson); // not awaited: analytics must never hold up the admin
+      }
       // A returned or cancelled order can't vouch for a review any more.
       if (RETURNED_ORDER_STATUSES.includes(updates.status)) {
         try {

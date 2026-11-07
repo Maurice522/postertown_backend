@@ -82,6 +82,11 @@ const orderSchema = new mongoose.Schema(
       channel: { type: String, default: "web" },
       storage: String,
     },
+    // GA4 client id of the shopper's browser, so the refund the backend sends to GA4
+    // (services/analytics.js) joins the same user as the purchase.
+    analytics: {
+      gaClientId: String,
+    },
   },
   {
     strict: false,

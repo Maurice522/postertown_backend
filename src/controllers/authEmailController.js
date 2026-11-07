@@ -229,6 +229,8 @@ export async function loginWithGoogle(req, res, next) {
       return res.status(403).json({ message: "This account is not active" });
     }
 
+    // Tells the storefront to count a GA4 sign_up rather than a login.
+    const isNewUser = !user;
     if (!user) {
       user = new User({
         id: createUserId(email),
@@ -251,7 +253,7 @@ export async function loginWithGoogle(req, res, next) {
     user.lastLoginAt = new Date();
     await user.save();
 
-    res.json({ message: "Logged in", user: sanitizeUser(user) });
+    res.json({ message: "Logged in", user: sanitizeUser(user), isNewUser });
   } catch (error) {
     next(error);
   }
