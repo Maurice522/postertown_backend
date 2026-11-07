@@ -8,6 +8,7 @@ import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import { COLLECTION_CATALOG } from "./utils/collections.js";
+import { configReport } from "./utils/configCheck.js";
 import { errorHandler, notFound } from "./middleware/errorHandlers.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 
@@ -47,6 +48,10 @@ app.get("/", (req, res) => {
 
 app.get("/api/collections", (req, res) => {
   res.json(COLLECTION_CATALOG.map(({ slug, title }) => ({ slug, title })));
+});
+// Which settings are present (true/false only, never values).
+app.get("/api/config-check", (req, res) => {
+  res.set("Cache-Control", "no-store").json(configReport());
 });
 app.use("/api/products", createCrudRouter("products"));
 app.use("/api/users", createCrudRouter("users"));
