@@ -98,8 +98,11 @@ function getCustomerEmail(order = {}) {
 }
 
 function imageUrl(item = {}) {
-  if (Array.isArray(item.image)) return item.image?.[0]?.url || item.image?.[0] || "";
-  return item.image || item.media?.thumbnail || item.media?.featuredImage || "";
+  const url = Array.isArray(item.image)
+    ? item.image?.[0]?.url || item.image?.[0] || ""
+    : item.image || item.media?.thumbnail || item.media?.featuredImage || "";
+  // Older orders store site-relative paths (/images/x.jpg); email clients need full links.
+  return typeof url === "string" && url.startsWith("/") ? `${brand.siteUrl.replace(/\/$/, "")}${url}` : url;
 }
 
 function addressBlock(shipping = {}) {
@@ -474,3 +477,6 @@ export async function sendPasswordResetEmail({ email, name, code }) {
     })
   });
 }
+
+// Shared with customerEmails.js (admin emails to one customer).
+export { brand, escapeHtml, emailLayout, button, imageUrl, orderItemsHtml, totalsHtml, customerInfoHtml, orderJourneyHtml, isReturnStatus };

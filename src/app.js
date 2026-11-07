@@ -6,6 +6,7 @@ import { configureCloudinary } from "./config/cloudinary.js";
 import { createCrudRouter } from "./routes/crudRouter.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import adminUserRoutes from "./routes/adminUserRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import { COLLECTION_CATALOG } from "./utils/collections.js";
 import { configReport } from "./utils/configCheck.js";
@@ -57,6 +58,7 @@ app.use("/api/products", createCrudRouter("products"));
 app.use("/api/users", createCrudRouter("users"));
 app.use("/api/orders", createCrudRouter("orders"));
 app.use("/api/auth", authRoutes);
+app.use("/api/admin/users", adminUserRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/reviews", reviewRoutes);
 

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   login,
   loginWithGoogle,
+  saveCart,
   saveDefaultAddress,
   sendPasswordReset,
   sendSignupVerification,
@@ -21,7 +22,8 @@ router.get("/", (req, res) => {
       signupVerify: "POST /api/auth/signup/verify",
       passwordForgot: "POST /api/auth/password/forgot",
       passwordReset: "POST /api/auth/password/reset",
-      address: "PUT /api/auth/address"
+      address: "PUT /api/auth/address",
+      cart: "PUT /api/auth/cart"
     }
   });
 });
@@ -29,6 +31,7 @@ router.get("/", (req, res) => {
 router.post("/login", login);
 router.post("/google", loginWithGoogle);
 router.put("/address", saveDefaultAddress);
+router.put("/cart", saveCart);
 router.post("/signup/start", sendSignupVerification);
 router.post("/signup/send-verification", sendSignupVerification);
 router.post("/signup/verify", verifySignupEmail);

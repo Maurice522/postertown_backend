@@ -69,6 +69,13 @@ const userSchema = new mongoose.Schema(
     },
     lastLoginAt: Date,
     addresses: { type: [addressSchema], default: [] },
+    // Signed-in shopper's cart, saved by the storefront (PUT /api/auth/cart).
+    cart: {
+      items: { type: [mongoose.Schema.Types.Mixed], default: undefined },
+      updatedAt: Date
+    },
+    // Emails the admin sent this customer from the Users page.
+    contactLog: { type: [mongoose.Schema.Types.Mixed], default: undefined },
     preferences: {
       marketingEmails: { type: Boolean, default: false },
       orderStatusEmails: { type: Boolean, default: true }
@@ -89,6 +96,7 @@ const userSchema = new mongoose.Schema(
         delete ret.passwordHash;
         delete ret.emailVerification;
         delete ret.passwordReset;
+        delete ret.contactLog;
         return ret;
       }
     }

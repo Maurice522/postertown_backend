@@ -373,3 +373,34 @@ export async function verifyPasswordReset(req, res, next) {
     next(error);
   }
 }
+
+// The storefront saves a signed-in shopper's cart here (debounced) so the admin can
+// see it and send a cart reminder. Only the fields the reminder email needs are kept.
+const MAX_CART_ITEMS = 30;
+export async function saveCart(req, res, next) {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const userId = String(req.body.userId || "");
+    if (!email || !userId || !Array.isArray(req.body.items)) {
+      return res.status(400).json({ message: "userId, email and items are required" });
+    }
+    const text = (value, max = 160) => String(value ?? "").trim().slice(0, max);
+    const items = req.body.items.slice(0, MAX_CART_ITEMS).map((item) => ({
+      id: text(item.id),
+      productId: text(item.productId || item.id),
+      name: text(item.name),
+      size: text(item.size || item.selectedSize, 40),
+      price: Math.max(0, Number(item.price) || 0),
+      amount: Math.min(99, Math.max(1, Number(item.amount) || 1)),
+      image: /^https:\/\//.test(String(item.image || "")) ? text(item.image, 500) : ""
+    }));
+    const result = await User.updateOne(
+      { id: userId, email, status: "active" },
+      { $set: { cart: { items, updatedAt: new Date() } } }
+    );
+    if (!result.matchedCount) return res.status(404).json({ message: "Account not found" });
+    res.json({ saved: items.length });
+  } catch (error) {
+    next(error);
+  }
+}
