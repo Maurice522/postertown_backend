@@ -24,8 +24,26 @@ const brand = {
   muted: "#647184",
   border: "#e2e8f0",
   panel: "#f7f9fb",
-  danger: "#b42318"
+  danger: "#b42318",
+  // Signature at the bottom of every customer email.
+  supportEmail: "Official@metalpostertown.in",
+  phone: "+91 9953749307",
+  whatsappUrl: "https://wa.me/919953749307",
+  instagramUrl: "https://www.instagram.com/metalpostertown/"
 };
+
+function signatureHtml() {
+  const link = (href, label) =>
+    `<a href="${href}" style="color:${brand.accent};text-decoration:none;">${label}</a>`;
+  return `
+    <div style="margin-top:28px;">
+      <div style="color:${brand.ink};font-size:15px;line-height:1.5;">Warm regards,</div>
+      <div style="color:${brand.ink};font-size:15px;font-weight:800;">Team Poster Town</div>
+      <div style="color:${brand.muted};font-size:12px;margin-top:8px;">
+        ${link(brand.siteUrl, "metalpostertown.in")} &middot; ${link(brand.whatsappUrl, `WhatsApp ${brand.phone}`)} &middot; ${link(brand.instagramUrl, "Instagram")}
+      </div>
+    </div>`;
+}
 
 const outboundOrderJourney = [
   { status: "payment_verification", label: "Payment verification" },
@@ -115,7 +133,7 @@ function addressBlock(shipping = {}) {
   ].filter(Boolean).join("<br />");
 }
 
-function emailLayout({ preheader, title, eyebrow = brand.name, children }) {
+function emailLayout({ preheader, title, eyebrow = brand.name, children, signature = true }) {
   return `
 <!doctype html>
 <html>
@@ -153,6 +171,7 @@ function emailLayout({ preheader, title, eyebrow = brand.name, children }) {
             <tr>
               <td style="padding:30px;">
                 ${children}
+                ${signature ? signatureHtml() : ""}
               </td>
             </tr>
             <tr>
@@ -397,6 +416,7 @@ function newOrderAlertHtml(order) {
   const contact = [customer.name, customer.email, customer.phone].filter(Boolean).map(escapeHtml).join("<br />");
 
   return emailLayout({
+    signature: false,
     title: `New order ${orderId}`,
     preheader: `${getCustomerName(order)} placed an order for ${currency(order.totals?.total)}`,
     eyebrow: "New order",

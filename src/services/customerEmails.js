@@ -172,7 +172,7 @@ export function buildCustomerEmail({ template, user = {}, order, cartItems = [],
     template === "review_request"
       ? (order?.items || []).map((item) => `${item.name}: ${productUrl(item)}`).join("\n")
       : "",
-    brand.siteUrl
+    `Warm regards,\nTeam Poster Town\n${brand.siteUrl}`
   ]
     .filter(Boolean)
     .join("\n\n");
